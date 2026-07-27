@@ -13,9 +13,9 @@
 
 ## ✨ 亮点特性
 
-- 🔌 **内置串口与网络工具** — 无需额外插件，开箱即用的串口监视器、TCP/UDP/WebSocket 网络调试助手，支持协议解析与波形图表
+- 🔌 **内置串口与网络工具** — 无需额外插件，开箱即用的串口监视器、TCP/UDP/WebSocket 网络调试助手，支持多 Client 连接池、协议解析与波形图表
 - 📊 **逻辑分析仪系统** — 深度整合 sigrok-cli，支持 131+ 协议解码与波形自动诊断，一键联动 VaporView 渲染高清波形
-- 🤖 **AI 嵌入式技能与MCP系统** — 25+ 专用 Skill 配合独立 MCP 桥接，让 AI agent 可直接读写串口、操作网络连接、控制逻辑分析仪，实现"对话式硬件调试"
+- 🤖 **AI 嵌入式技能与MCP系统** — 25+ 专用 Skill 配合独立 MCP 桥接，让 AI agent 可直接读写串口、操作网络连接（支持 TCP 接收暂停/恢复、阻塞读取与批量控制）、控制逻辑分析仪，实现"对话式硬件调试"
 - 🎨 **协议帧高亮** — 自定义帧格式，数据自动着色、数值实时提取，支持图形化波形
 - 📡 **多总线调试** — 串口 / CAN 总线 / VISA 仪器一站式调试
 - 📐 **原理图网表提取** — 内置 sch-rnd 引擎，从原理图自动提取 MCU 引脚映射
@@ -137,14 +137,17 @@
 
 ## 🌐 网络调试系统
 
-点线面网络调试助手内置了 TCP/UDP/WebSocket 客户端与服务端，提供多通道并发连接管理，支持协议解析与数值波形图。
+点线面网络调试助手内置了 TCP/UDP/WebSocket 客户端与服务端，提供多通道与多客户端并发连接管理，支持协议解析、数值波形图及自动化 MCP 链路诊断。
 
 ### 核心能力
 
 | 功能 | 说明 |
 |---|---|
 | 协议支持 | 支持 TCP Client/Server、UDP Client/Server (单播/组播/广播)、WebSocket Client/Server |
-| 多连接管理 | 支持同时管理和激活多个并发的网络连接，随时查看连接状态与客户端列表 |
+| 多 Client 活动连接池 | 支持 TCP/UDP/WS 客户端并发建立多个独立在线连接；UI 侧边栏提供“活动连接池”列表，支持分路独立查看流量、切换控制视角及单点/批量断开 |
+| WS 握手与元数据感知 | 自动拦截解析 HTTP Upgrade 握手阶段的请求路径 (`requestPath`)、`query` 查询参数与 Headers，界面直观呈现连入 Path 并在建立失败时透传完整 HTTP 报错响应体 |
+| UDP 端口绑定与路由 | 支持显式/隐式绑定本地端口 `bindPort`，解决同机回环与多网卡测试场景中远端回包丢包问题 |
+| 心跳与数据流水 | 支持 TCP `SO_KEEPALIVE` 心跳配置、在线时长 (`uptime`) 统计、Ping/Pong 控制帧数据流水完整呈现及对端掉线自动清理 |
 | 协议高亮 | 支持自定义协议帧结构，与串口共用高亮着色引擎，根据特征字段自动高亮并显示协议名称 |
 | 波形图表 | 3 通道实时波形渲染，提取网络包中的数值变量进行 uPlot 高频绘制 |
 | 独立显示 | 专用的 VirtualNetworkWindows 组件，可按 IP、协议（TCP=紫色，UDP=橙色，WebSocket=青色）以及客户端 ID 进行多维标签标记 |
@@ -264,10 +267,14 @@
 |---|---|
 | `list_connections` | 列出当前已建立的所有网络连接及状态 |
 | `connect` | 开启新的网络连接（指定 TCP/UDP/WS 协议、客户端/服务端角色、IP与端口） |
-| `disconnect` | 断开指定的网络连接（包含释放监听端口或终止客户端连接） |
+| `disconnect` | 断开指定的网络连接（支持扩展 `closeCode` 与 `reason` 参数，支持 RFC 6455 优雅断开及 Close 帧捕获） |
+| `connect_all` | 批量建立多个网络连接，快速准备测试现场环境 |
+| `disconnect_all` | 全局重置并断开所有网络连接，实现测试现场的原子清理与恢复 |
+| `pause_network_read` | 按连接/客户端暂停 TCP 套接字接收，用于自动化模拟背压与发送缓冲区满（Buffer Full）测试 |
+| `resume_network_read` | 恢复已暂停的 TCP 套接字接收 |
 | `get_clients` | 获取特定网络服务端下所有已连接的客户端列表 |
 | `disconnect_client` | 强制断开网络服务端的指定客户端 |
-| `read_buffer` | 读取网络接收/发送缓冲区数据（支持 hex / string / highlighted 分段高亮） |
+| `read_buffer` | 读取网络接收/发送缓冲区数据（支持 `waitTimeout` 毫秒级阻塞等待机制及 hex / string / highlighted 分段高亮） |
 | `write_network` | 发送网络数据，支持 Hex/String 格式，支持单播向特定客户端发送 |
 | `update_protocol_config` | 动态热更新网络协议高亮解析配置 |
 | `get_protocol_config` | 读取当前网络协议的高亮配置详情 |
